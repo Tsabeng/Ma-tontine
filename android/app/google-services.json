@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1065461333787",
+    "project_id": "tontine-ecd64",
+    "storage_bucket": "tontine-ecd64.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1065461333787:android:3548a2c027cc2931011dbe",
+        "android_client_info": {
+          "package_name": "com.example.ma_tontine"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOyv5Dos_J5k2yuKefI3sK2gfEFXkb0nY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

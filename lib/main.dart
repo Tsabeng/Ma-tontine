@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -23,6 +24,7 @@ import 'viewmodels/member_viewmodel.dart';
 
 import 'views/onboarding/onboarding_screen.dart';
 import 'views/association_selection/association_selection_screen.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +32,10 @@ void main() async {
   // NOTE: `firebase_options.dart` est généré par la CLI FlutterFire
   // (`flutterfire configure`) et n'est pas inclus ici — voir le README
   // pour la procédure de configuration Firebase.
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+  options: DefaultFirebaseOptions.currentPlatform,
+);
+
 
   await initializeDateFormatting('fr_FR', null);
 
@@ -67,6 +72,11 @@ class MaTontineApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         locale: const Locale('fr', 'FR'),
         supportedLocales: const [Locale('fr', 'FR')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         routes: AppRoutes.routes,
         home: const _AuthGate(),
       ),
