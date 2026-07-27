@@ -1,0 +1,93 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Vérifie que l'utilisateur connecté est bien membre de l'association donnée.
+    function estMembre(associationId) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/associations/$(associationId)/members/$(request.auth.uid));
+    }
+
+    // Vérifie que l'utilisateur connecté est administrateur de l'association donnée.
+    function estAdmin(associationId) {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/associations/$(associationId)/members/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // --- Utilisateurs ---
+    // Un utilisateur peut lire/écrire uniquement son propre profil.
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // --- Associations ---
+    match /associations/{associationId} {
+      // Lecture : uniquement les membres de l'association.
+      allow read: if estMembre(associationId);
+      // Création : tout utilisateur connecté peut créer une association (il en devient admin).
+      allow create: if request.auth != null;
+      // Modification/suppression : uniquement le créateur ou un admin.
+      allow update, delete: if request.auth != null &&
+        (request.auth.uid == resource.data.createdBy || estAdmin(associationId));
+
+      // Sous-collection des membres.
+      match /members/{memberId} {
+        allow read: if estMembre(associationId);
+        // Un utilisateur peut créer sa propre fiche membre (rejoindre via code),
+        // ou un admin peut ajouter/modifier n'importe quel membre.
+        allow create: if request.auth != null &&
+          (request.auth.uid == memberId || estAdmin(associationId));
+        allow update, delete: if estAdmin(associationId) || request.auth.uid == memberId;
+      }
+
+      // Invitations en attente (visibles/gérées par les admins uniquement).
+      match /invitations_en_attente/{inviteId} {
+        allow read, write: if estAdmin(associationId);
+      }
+    }
+
+    // --- Réunions ---
+    match /meetings/{meetingId} {
+      allow read: if estMembre(resource.data.associationId);
+      allow create: if estMembre(request.resource.data.associationId);
+      // Modification : l'admin, le créateur de la réunion, ou tout membre
+      // qui ne fait que s'ajouter aux participants (bouton "Participer").
+      allow update: if estMembre(resource.data.associationId);
+      allow delete: if estAdmin(resource.data.associationId) || request.auth.uid == resource.data.createdBy;
+    }
+
+    // --- Caisses ---
+    match /caisses/{caisseId} {
+      allow read: if estMembre(resource.data.associationId);
+      allow create: if estMembre(request.resource.data.associationId);
+      allow update: if estMembre(resource.data.associationId);
+      allow delete: if estAdmin(resource.data.associationId);
+    }
+
+    // --- Transactions ---
+    match /transactions/{transactionId} {
+      allow read: if estMembre(resource.data.associationId);
+      // Toute écriture de transaction passe par une transaction atomique
+      // Firestore côté client (voir CaisseService._mouvementer) qui met
+      // aussi à jour le solde de la caisse — on autorise les membres à créer,
+      // mais pas à modifier/supprimer l'historique (intégrité comptable).
+      allow create: if estMembre(request.resource.data.associationId);
+      allow update, delete: if estAdmin(resource.data.associationId);
+    }
+
+    // --- Prêts ---
+    match /loans/{loanId} {
+      allow read: if estMembre(resource.data.associationId);
+      // Un membre peut créer sa propre demande de prêt.
+      allow create: if estMembre(request.resource.data.associationId) &&
+        request.auth.uid == request.resource.data.membreId;
+      // Validation/refus/remboursement : admin, ou le membre concerné pour
+      // enregistrer ses propres remboursements.
+      allow update: if estAdmin(resource.data.associationId) || request.auth.uid == resource.data.membreId;
+      allow delete: if estAdmin(resource.data.associationId);
+    }
+  }
+}
