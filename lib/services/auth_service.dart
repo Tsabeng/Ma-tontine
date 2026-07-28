@@ -28,6 +28,14 @@ class AuthService {
     );
 
     final uid = credential.user!.uid;
+
+    // Force le rafraîchissement du jeton d'authentification avant la
+    // première écriture Firestore. Sans cela, la requête Firestore peut
+    // partir avec un jeton pas encore à jour juste après la création du
+    // compte, ce qui provoque une erreur permission-denied alors que les
+    // règles de sécurité sont pourtant correctes.
+    await credential.user!.getIdToken(true);
+
     final newUser = UserModel(
       uid: uid,
       nom: nom,
@@ -67,6 +75,7 @@ class AuthService {
 
     final userCredential = await _auth.signInWithCredential(oauthCredential);
     final uid = userCredential.user!.uid;
+    await userCredential.user!.getIdToken(true);
 
     final doc = await _firestore.collection('users').doc(uid).get();
     if (!doc.exists) {
