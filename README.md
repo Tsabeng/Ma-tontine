@@ -68,12 +68,3 @@ firebase deploy --only firestore:rules
 ```
 flutter run
 ```
-
-## Statut actuel du code
-✅ Modèles, services, viewmodels, thème, routes, main.dart
-✅ Écrans : onboarding, auth, sélection/création association, dashboard,
-   réunions (liste/détail/formulaire), membres, finances (caisses,
-   détail caisse, mon bilan)
-⏳ Pas encore fait : écran "Prêts" dédié (le LoanViewModel existe mais
-   n'a pas encore d'écran), règles Firestore complètes pour
-   caisses/transactions/loans, tests, icône et splash screen personnalisés
