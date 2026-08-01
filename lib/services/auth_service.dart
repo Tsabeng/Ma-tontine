@@ -1,3 +1,5 @@
+import 'dart:math';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -116,5 +118,82 @@ class AuthService {
 
   Future<void> reinitialiserMotDePasse(String email) async {
     await _auth.sendPasswordResetEmail(email: email);
+  }
+
+  /// Crée le compte d'un nouveau membre à la demande d'un administrateur,
+  /// à partir de son email et son nom, SANS déconnecter l'administrateur
+  /// actuellement connecté.
+  ///
+  /// Problème technique évité ici : `createUserWithEmailAndPassword` sur
+  /// l'instance FirebaseAuth principale connecte automatiquement le client
+  /// avec le compte nouvellement créé, ce qui déconnecterait l'admin en
+  /// pleine session. On utilise donc une app Firebase secondaire et
+  /// temporaire, isolée de la session principale, qu'on détruit juste
+  /// après usage.
+  ///
+  /// Le mot de passe est généré aléatoirement (l'admin ne le connaît pas) ;
+  /// un email de réinitialisation est envoyé immédiatement pour que le
+  /// membre définisse lui-même son mot de passe et se connecte plus tard.
+  /// Référence : §3.3.1 (ajout d'un membre), adapté pour créer le compte
+  /// automatiquement plutôt que par invitation.
+  Future<String> creerCompteMembreParAdmin({
+    required String email,
+    required String nomComplet,
+  }) async {
+    final secondaryApp = await Firebase.initializeApp(
+      name: 'creation_membre_${DateTime.now().microsecondsSinceEpoch}',
+      options: Firebase.app().options,
+    );
+    final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+
+    try {
+      final motDePasseTemporaire = _genererMotDePasseAleatoire();
+
+      final credential = await secondaryAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: motDePasseTemporaire,
+      );
+      final uid = credential.user!.uid;
+
+      final nameParts = nomComplet.trim().split(RegExp(r'\s+'));
+      final newUser = UserModel(
+        uid: uid,
+        prenom: nameParts.isNotEmpty ? nameParts.first : nomComplet,
+        nom: nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '',
+        email: email,
+        telephone: '',
+        createdAt: DateTime.now(),
+      );
+
+      // Écrit le profil via l'instance secondaire (le nouvel utilisateur
+      // est temporairement connecté dessus, donc autorisé par les règles
+      // "allow create: if request.auth.uid == userId").
+      await FirebaseFirestore.instanceFor(app: secondaryApp)
+          .collection('users')
+          .doc(uid)
+          .set(newUser.toMap());
+
+      // Le membre recevra un email pour choisir lui-même son mot de passe.
+      await secondaryAuth.sendPasswordResetEmail(email: email);
+
+      return uid;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        throw Exception(
+          "Un compte existe déjà pour cet email mais n'est pas rattaché à "
+          "un profil connu. Contacte l'administrateur système pour vérifier ce compte.",
+        );
+      }
+      rethrow;
+    } finally {
+      await secondaryAuth.signOut();
+      await secondaryApp.delete();
+    }
+  }
+
+  String _genererMotDePasseAleatoire() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#%';
+    final rand = Random.secure();
+    return List.generate(16, (_) => chars[rand.nextInt(chars.length)]).join();
   }
 }

@@ -78,8 +78,36 @@ class MemberViewModel extends ChangeNotifier {
     );
   }
 
-  Future<void> inviterParEmail(String associationId, String email, MembreRole role) {
-    return _service.inviterParEmail(associationId: associationId, email: email, role: role);
+  bool isCreatingMember = false;
+
+  Future<bool> ajouterMembreParInformations({
+    required String associationId,
+    required String nomComplet,
+    required String email,
+    String? telephone,
+    String? adresse,
+    MembreRole role = MembreRole.membre,
+  }) async {
+    isCreatingMember = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _service.ajouterMembreParInformations(
+        associationId: associationId,
+        nomComplet: nomComplet,
+        email: email,
+        telephone: telephone,
+        adresse: adresse,
+        role: role,
+      );
+      return true;
+    } catch (e) {
+      errorMessage = e.toString();
+      return false;
+    } finally {
+      isCreatingMember = false;
+      notifyListeners();
+    }
   }
 
   Future<void> supprimerMembre(String associationId, String uid) =>

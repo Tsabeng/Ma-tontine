@@ -16,11 +16,32 @@ service cloud.firestore {
     }
 
     // --- Utilisateurs ---
-    // Un utilisateur peut lire/écrire uniquement son propre profil.
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      // Lecture : tout utilisateur connecté peut lire n'importe quel profil.
+      // Nécessaire pour la recherche "un compte existe-t-il déjà pour cet
+      // email ?" lors de l'ajout d'un membre (§3.3.1 revu) : Firestore
+      // refuse toute requête `where(...)` qui n'est pas garantie de rester
+      // dans les limites d'une règle restreinte à `request.auth.uid == userId`.
+      // Compromis assumé : n'importe quel utilisateur connecté peut voir le
+      // nom/email/téléphone d'un autre — pas de donnée sensible (mot de
+      // passe) n'est stockée ici, celui-ci reste géré par Firebase Auth.
+      allow read: if request.auth != null;
       allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
+
+      // Modification : son propre profil librement, OU un admin
+      // d'association qui ne fait qu'ajouter CE membre à SA propre
+      // association (ajout de membre par informations, §3.3.1 revu).
+      // Le diff est restreint au seul champ `associations`, et la
+      // nouvelle entrée ajoutée doit pointer vers une association dont
+      // l'auteur de la requête est administrateur.
+      allow update: if request.auth != null && (
+        request.auth.uid == userId ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['associations']) &&
+          request.resource.data.associations.size() > resource.data.associations.size() &&
+          estAdmin(request.resource.data.associations[request.resource.data.associations.size() - 1].associationId)
+        )
+      );
     }
 
     // --- Associations ---

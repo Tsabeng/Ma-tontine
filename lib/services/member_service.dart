@@ -2,12 +2,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/member_model.dart';
 import '../models/user_model.dart';
 import 'firestore_service.dart';
+import 'auth_service.dart';
 
-/// Gère les membres d'une association : ajout direct, invitation par
-/// email, liste avec recherche/filtrage/tri. Référence : §3.3.
+/// Gère les membres d'une association : ajout par informations (avec
+/// création automatique de compte si besoin), liste avec
+/// recherche/filtrage/tri. Référence : §3.3.
 class MemberService {
-  /// Ajout direct d'un membre (déjà connu, sans passer par le code
-  /// d'invitation) — §3.3.1.
+  final AuthService _authService;
+
+  MemberService(this._authService);
+
+  /// Ajout direct d'un membre (déjà connu dans l'app, avec son uid) —
+  /// utilisé en interne par [ajouterMembreParInformations].
   Future<void> ajouterMembre({
     required String associationId,
     required String uid,
@@ -44,22 +50,41 @@ class MemberService {
     await batch.commit();
   }
 
-  /// Invitation d'un membre par email — §3.3.1. En production, ceci
-  /// déclenche une Cloud Function qui envoie l'email d'invitation ;
-  /// ici on enregistre la demande en attente.
-  Future<void> inviterParEmail({
+  /// Ajoute un membre uniquement à partir de ses informations (nom, email,
+  /// téléphone, adresse). Si aucun compte n'existe pour cet email, il est
+  /// créé automatiquement ; le membre reçoit un email pour définir son
+  /// propre mot de passe et pourra se connecter plus tard. Remplace le
+  /// workflow d'invitation par email — §3.3.1.
+  Future<void> ajouterMembreParInformations({
     required String associationId,
+    required String nomComplet,
     required String email,
+    String? telephone,
+    String? adresse,
     MembreRole role = MembreRole.membre,
   }) async {
-    await FirestoreService.associations
-        .doc(associationId)
-        .collection('invitations_en_attente')
-        .add({
-      'email': email,
-      'role': role.name,
-      'invitedAt': FieldValue.serverTimestamp(),
-    });
+    // 1. Cherche si un compte existe déjà pour cet email (parmi les
+    // profils déjà créés dans l'app).
+    final query = await FirestoreService.users.where('email', isEqualTo: email).limit(1).get();
+
+    final String uid;
+    if (query.docs.isNotEmpty) {
+      uid = query.docs.first.id;
+    } else {
+      // 2. Sinon, crée automatiquement le compte du nouveau membre.
+      uid = await _authService.creerCompteMembreParAdmin(email: email, nomComplet: nomComplet);
+    }
+
+    // 3. Rattache le membre à l'association.
+    await ajouterMembre(
+      associationId: associationId,
+      uid: uid,
+      nomComplet: nomComplet,
+      email: email,
+      telephone: telephone,
+      adresse: adresse,
+      role: role,
+    );
   }
 
   Stream<List<MemberModel>> watchMembres(String associationId) {

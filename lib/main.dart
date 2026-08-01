@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'config/app_theme.dart';
 import 'config/routes.dart';
+import 'firebase_options.dart';
 
 import 'services/auth_service.dart';
 import 'services/association_service.dart';
@@ -24,18 +25,11 @@ import 'viewmodels/member_viewmodel.dart';
 
 import 'views/onboarding/onboarding_screen.dart';
 import 'views/association_selection/association_selection_screen.dart';
-import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // NOTE: `firebase_options.dart` est généré par la CLI FlutterFire
-  // (`flutterfire configure`) et n'est pas inclus ici — voir le README
-  // pour la procédure de configuration Firebase.
-  await Firebase.initializeApp(
-  options: DefaultFirebaseOptions.currentPlatform,
-);
-
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await initializeDateFormatting('fr_FR', null);
 
@@ -55,7 +49,7 @@ class MaTontineApp extends StatelessWidget {
         Provider(create: (_) => MeetingService()),
         Provider(create: (_) => CaisseService()),
         Provider(create: (_) => LoanService()),
-        Provider(create: (_) => MemberService()),
+        Provider(create: (ctx) => MemberService(ctx.read<AuthService>())),
         Provider(create: (_) => NotificationService()),
 
         // ViewModels — exposés à tout l'arbre de widgets.
