@@ -6,8 +6,31 @@ import '../../viewmodels/meeting_viewmodel.dart';
 import '../../models/meeting_model.dart';
 import '../../config/routes.dart';
 
-class MeetingsListScreen extends StatelessWidget {
+class MeetingsListScreen extends StatefulWidget {
   const MeetingsListScreen({super.key});
+
+  @override
+  State<MeetingsListScreen> createState() => _MeetingsListScreenState();
+}
+
+class _MeetingsListScreenState extends State<MeetingsListScreen> {
+  String? _associationIdChargee;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final associationId = context.watch<AssociationViewModel>().associationActive?.id;
+    if (associationId != null && associationId != _associationIdChargee) {
+      _associationIdChargee = associationId;
+      // Charge les réunions même si cet écran a été ouvert directement
+      // (menu latéral) sans passer par le tableau de bord au préalable —
+      // sinon isLoading reste bloqué à `true` indéfiniment.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<MeetingViewModel>().ecouterReunions(associationId);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

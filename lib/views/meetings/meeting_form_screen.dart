@@ -5,6 +5,11 @@ import '../../viewmodels/meeting_viewmodel.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../models/meeting_model.dart';
 
+/// Formulaire de création OU de modification d'une réunion. Si une
+/// [MeetingModel] est passée en argument de route
+/// (`Navigator.pushNamed(..., arguments: meeting)`), l'écran s'ouvre en
+/// mode édition, préremplit les champs et appelle `modifierReunion` au
+/// lieu de `creerReunion`.
 class MeetingFormScreen extends StatefulWidget {
   const MeetingFormScreen({super.key});
 
@@ -25,6 +30,31 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
   TimeOfDay _heure = const TimeOfDay(hour: 15, minute: 0);
   TypeReunion _type = TypeReunion.presentiel;
   bool _isSaving = false;
+  bool _champsPreremplis = false;
+  MeetingModel? _meetingExistante;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_champsPreremplis) return;
+    final meeting = ModalRoute.of(context)?.settings.arguments as MeetingModel?;
+    if (meeting != null) {
+      _meetingExistante = meeting;
+      _titreController.text = meeting.titre;
+      _descriptionController.text = meeting.description ?? '';
+      _lieuController.text = meeting.lieu;
+      _lienController.text = meeting.lien ?? '';
+      _fraisController.text = meeting.fraisPresence?.toStringAsFixed(0) ?? '';
+      _ordreJourController.text = meeting.ordreJour.join('\n');
+      _date = meeting.date;
+      final parts = meeting.heure.split(':');
+      if (parts.length == 2) {
+        _heure = TimeOfDay(hour: int.tryParse(parts[0]) ?? 15, minute: int.tryParse(parts[1]) ?? 0);
+      }
+      _type = meeting.type;
+    }
+    _champsPreremplis = true;
+  }
 
   Future<void> _choisirDate() async {
     final picked = await showDatePicker(
@@ -55,31 +85,63 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
         .where((e) => e.isNotEmpty)
         .toList();
 
-    final meeting = MeetingModel(
-      id: '',
-      associationId: association.id,
-      titre: _titreController.text.trim(),
-      description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
-      date: _date,
-      heure: '${_heure.hour.toString().padLeft(2, '0')}:${_heure.minute.toString().padLeft(2, '0')}',
-      lieu: _lieuController.text.trim(),
-      type: _type,
-      lien: _type == TypeReunion.en_ligne ? _lienController.text.trim() : null,
-      ordreJour: ordreJour,
-      fraisPresence: double.tryParse(_fraisController.text),
-      createdBy: uid,
-      createdAt: DateTime.now(),
-    );
+    final heureFormatee = '${_heure.hour.toString().padLeft(2, '0')}:${_heure.minute.toString().padLeft(2, '0')}';
+    final vm = context.read<MeetingViewModel>();
+    bool ok;
 
-    final ok = await context.read<MeetingViewModel>().creerReunion(meeting);
+    if (_meetingExistante != null) {
+      final meetingModifiee = MeetingModel(
+        id: _meetingExistante!.id,
+        associationId: _meetingExistante!.associationId,
+        caisseId: _meetingExistante!.caisseId,
+        titre: _titreController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+        date: _date,
+        heure: heureFormatee,
+        lieu: _lieuController.text.trim(),
+        type: _type,
+        lien: _type == TypeReunion.en_ligne ? _lienController.text.trim() : null,
+        ordreJour: ordreJour,
+        fraisPresence: double.tryParse(_fraisController.text),
+        statut: _meetingExistante!.statut,
+        createdBy: _meetingExistante!.createdBy,
+        createdAt: _meetingExistante!.createdAt,
+        participants: _meetingExistante!.participants,
+        presences: _meetingExistante!.presences,
+        compteRendu: _meetingExistante!.compteRendu,
+        pdfUrl: _meetingExistante!.pdfUrl,
+      );
+      ok = await vm.modifierReunion(meetingModifiee);
+    } else {
+      final meeting = MeetingModel(
+        id: '',
+        associationId: association.id,
+        titre: _titreController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+        date: _date,
+        heure: heureFormatee,
+        lieu: _lieuController.text.trim(),
+        type: _type,
+        lien: _type == TypeReunion.en_ligne ? _lienController.text.trim() : null,
+        ordreJour: ordreJour,
+        fraisPresence: double.tryParse(_fraisController.text),
+        createdBy: uid,
+        createdAt: DateTime.now(),
+      );
+      ok = await vm.creerReunion(meeting);
+    }
+
     setState(() => _isSaving = false);
     if (ok && mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<MeetingViewModel>();
+    final modeEdition = _meetingExistante != null;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Nouvelle réunion')),
+      appBar: AppBar(title: Text(modeEdition ? 'Modifier la réunion' : 'Nouvelle réunion')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -155,11 +217,16 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
                 ),
               ),
               const SizedBox(height: 24),
+              if (vm.errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(vm.errorMessage!, style: const TextStyle(color: Colors.red)),
+                ),
               ElevatedButton(
                 onPressed: _isSaving ? null : _enregistrer,
                 child: _isSaving
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Créer la réunion'),
+                    : Text(modeEdition ? 'Enregistrer les modifications' : 'Créer la réunion'),
               ),
             ],
           ),

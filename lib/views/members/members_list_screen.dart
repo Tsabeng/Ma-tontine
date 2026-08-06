@@ -20,7 +20,10 @@ class _MembersListScreenState extends State<MembersListScreen> {
     final associationId = context.watch<AssociationViewModel>().associationActive?.id;
     if (associationId != null && associationId != _associationIdChargee) {
       _associationIdChargee = associationId;
-      context.read<MemberViewModel>().ecouterMembres(associationId);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<MemberViewModel>().ecouterMembres(associationId);
+      });
     }
   }
 

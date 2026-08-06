@@ -3,12 +3,16 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../viewmodels/meeting_viewmodel.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/association_viewmodel.dart';
 import '../../services/pdf_service.dart';
 import '../../services/meeting_service.dart';
 import '../../models/meeting_model.dart';
+import '../../models/user_model.dart';
+import '../../config/routes.dart';
 
 /// Détail d'une réunion : ordre du jour, participants, présences,
-/// compte-rendu, export PDF. Référence : §3.4.2.
+/// compte-rendu, export PDF, et — pour un administrateur — modification
+/// ou suppression de la réunion. Référence : §3.4.2.
 ///
 /// L'ID de la réunion est transmis via `ModalRoute` arguments lors de la
 /// navigation (`Navigator.pushNamed(..., arguments: meetingId)`).
@@ -28,12 +32,30 @@ class MeetingDetailScreen extends StatelessWidget {
     }
 
     final uid = context.watch<AuthViewModel>().currentUser?.uid;
+    final user = context.watch<AuthViewModel>().currentUser;
+    final association = context.watch<AssociationViewModel>().associationActive;
     final dejaParticipant = uid != null && meeting.participants.contains(uid);
+
+    final estAdmin = user != null &&
+        association != null &&
+        user.associations.any((a) => a.associationId == association.id && a.role == MembreRole.admin);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(meeting.titre),
         actions: [
+          if (estAdmin) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Modifier',
+              onPressed: () => Navigator.of(context).pushNamed(AppRoutes.meetingForm, arguments: meeting),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Supprimer',
+              onPressed: () => _confirmerSuppression(context, meeting),
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_outlined),
             tooltip: 'Exporter en PDF',
@@ -86,6 +108,28 @@ class MeetingDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmerSuppression(BuildContext context, MeetingModel meeting) async {
+    final confirmer = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer la réunion ?'),
+        content: Text('"${meeting.titre}" sera définitivement supprimée. Cette action est irréversible.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmer == true && context.mounted) {
+      final ok = await context.read<MeetingViewModel>().supprimerReunion(meeting.id);
+      if (ok && context.mounted) Navigator.of(context).pop();
+    }
   }
 
   void _afficherFormulaireCompteRendu(BuildContext context, MeetingModel meeting) {

@@ -9,8 +9,28 @@ import '../../config/routes.dart';
 
 final _formatFcfa = NumberFormat.decimalPattern('fr_FR');
 
-class FinancesScreen extends StatelessWidget {
+class FinancesScreen extends StatefulWidget {
   const FinancesScreen({super.key});
+
+  @override
+  State<FinancesScreen> createState() => _FinancesScreenState();
+}
+
+class _FinancesScreenState extends State<FinancesScreen> {
+  String? _associationIdChargee;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final associationId = context.watch<AssociationViewModel>().associationActive?.id;
+    if (associationId != null && associationId != _associationIdChargee) {
+      _associationIdChargee = associationId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<CaisseViewModel>().ecouterCaisses(associationId);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

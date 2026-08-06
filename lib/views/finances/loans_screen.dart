@@ -11,8 +11,28 @@ final _formatFcfa = NumberFormat.decimalPattern('fr_FR');
 
 /// Écran Prêts — demande par un membre, validation par l'administrateur,
 /// suivi des remboursements. Référence : §3.6.2.
-class LoansScreen extends StatelessWidget {
+class LoansScreen extends StatefulWidget {
   const LoansScreen({super.key});
+
+  @override
+  State<LoansScreen> createState() => _LoansScreenState();
+}
+
+class _LoansScreenState extends State<LoansScreen> {
+  String? _associationIdChargee;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final associationId = context.watch<AssociationViewModel>().associationActive?.id;
+    if (associationId != null && associationId != _associationIdChargee) {
+      _associationIdChargee = associationId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<LoanViewModel>().ecouterPrets(associationId);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

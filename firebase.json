@@ -1,31 +1,6 @@
 {
-  "flutter": {
-    "platforms": {
-      "android": {
-        "default": {
-          "projectId": "tontine-ecd64",
-          "appId": "1:1065461333787:android:3548a2c027cc2931011dbe",
-          "fileOutput": "android/app/google-services.json"
-        }
-      },
-      "dart": {
-        "lib/firebase_options.dart": {
-          "projectId": "tontine-ecd64",
-          "configurations": {
-            "android": "1:1065461333787:android:3548a2c027cc2931011dbe",
-            "ios": "1:1065461333787:ios:bc323ec78d4f4554011dbe",
-            "macos": "1:1065461333787:ios:bc323ec78d4f4554011dbe",
-            "web": "1:1065461333787:web:cf6ce3bb685112ac011dbe",
-            "windows": "1:1065461333787:web:4c91fe8a2f51053f011dbe"
-          }
-        }
-      }
-    }
-  },
   "firestore": {
-    "database": "(default)",
-    "location": "eur3",
-    "rules": "yes",
+    "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   }
 }

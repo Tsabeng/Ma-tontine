@@ -30,10 +30,17 @@ class _HomeScreenState extends State<HomeScreen> {
     if (associationId != null && associationId != _dernierAssociationIdChargee) {
       _dernierAssociationIdChargee = associationId;
       // Recharger réunions et caisses pour la nouvelle association active
-      // à chaque basculement (§2.2.2).
-      context.read<MeetingViewModel>().ecouterReunions(associationId);
-      context.read<CaisseViewModel>().ecouterCaisses(associationId);
-      context.read<LoanViewModel>().ecouterPrets(associationId);
+      // à chaque basculement (§2.2.2). On diffère ces appels après la fin
+      // du build en cours : ecouterX() déclenche notifyListeners() dès
+      // qu'un premier résultat arrive, et l'appeler pendant
+      // didChangeDependencies (qui fait partie de la phase de build) casse
+      // Flutter avec "setState() or markNeedsBuild() called during build".
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<MeetingViewModel>().ecouterReunions(associationId);
+        context.read<CaisseViewModel>().ecouterCaisses(associationId);
+        context.read<LoanViewModel>().ecouterPrets(associationId);
+      });
     }
   }
 

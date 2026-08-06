@@ -45,6 +45,28 @@ class MeetingViewModel extends ChangeNotifier {
     }
   }
 
+  Future<bool> modifierReunion(MeetingModel meeting) async {
+    try {
+      await _service.modifierReunion(meeting);
+      return true;
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> supprimerReunion(String meetingId) async {
+    try {
+      await _service.supprimerReunion(meetingId);
+      return true;
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> participer(String meetingId, String uid) => _service.participer(meetingId, uid);
 
   Future<void> marquerPresence(String meetingId, List<String> presents) =>

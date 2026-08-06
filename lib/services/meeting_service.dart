@@ -66,4 +66,26 @@ class MeetingService {
     });
     // TODO(notification_service): envoyer le compte-rendu après la réunion.
   }
+
+  /// Modification d'une réunion existante par un administrateur.
+  /// Ne touche pas aux champs liés au déroulement (participants,
+  /// présences, compte-rendu, statut).
+  Future<void> modifierReunion(MeetingModel meeting) async {
+    await FirestoreService.meetings.doc(meeting.id).update({
+      'titre': meeting.titre,
+      'description': meeting.description,
+      'date': Timestamp.fromDate(meeting.date),
+      'heure': meeting.heure,
+      'lieu': meeting.lieu,
+      'type': meeting.type.name,
+      'lien': meeting.lien,
+      'ordreJour': meeting.ordreJour,
+      'fraisPresence': meeting.fraisPresence,
+    });
+  }
+
+  /// Suppression d'une réunion par un administrateur.
+  Future<void> supprimerReunion(String meetingId) async {
+    await FirestoreService.meetings.doc(meetingId).delete();
+  }
 }
